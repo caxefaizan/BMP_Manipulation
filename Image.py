@@ -22,8 +22,6 @@ def read_rows(path,origin_x,origin_y,height,width):
         return
     # We need to read pixels in as rows to later swap the order
     # since BMP stores pixels starting at the bottom left.
-    rows = []
-    row = []
     test_rows = []
     test_row = []
     pixel_index = 0
@@ -31,24 +29,19 @@ def read_rows(path,origin_x,origin_y,height,width):
     while True:
         if pixel_index == bmp_w:
             pixel_index = 0
-
-            rows.insert(0, row) # last row was scanned ,hence it is first in last out in the list
             test_rows.append(test_row)
             if len(test_row) != bmp_w * 3:
                 raise Exception(f'Row length is not {bmp_w*3} but {str(len(row))}/3.0 = {str(len(row))}/ 3.0)')
-            row = []
             test_row = []
         pixel_index += 1
 
         r_string = image_file.read(1)
-#         print(type(r_string)) #bytes
-#         print(r_string) #b'H'
         g_string = image_file.read(1)
         b_string = image_file.read(1)
 
         if len(r_string) == 0:
             # This is expected to happen when we've read everything.
-            if len(rows) != bmp_h:
+            if len(test_rows) != bmp_h:
                 print (f"Warning!!! Read to the end of the file at the correct sub-pixel (red) but we've not read {bmp_h} rows!")
             break
 
@@ -60,31 +53,20 @@ def read_rows(path,origin_x,origin_y,height,width):
             print ("Warning!!! Got 0 length string for blue. Breaking.")
             break
         
-        r = ord(r_string) #The ord() function returns an integer representing the Unicode character.
-#         print(r) # int
-#         print(type(r))
-        g = ord(g_string)
-        b = ord(b_string)
-
-        row.append(b)
-        row.append(g)
-        row.append(r)
         test_row.append(r_string)
         test_row.append(g_string)
         test_row.append(b_string)
 
     image_file.close()
-    print(f'Number of rows : {len(rows)}')
-    return rows,test_rows
+    print(f'Number of rows : {len(test_rows)}')
+    return test_rows
 
 
 
-def repack_sub_pixels(rows,test_rows,origin_x,origin_y,height,width):
+def repack_sub_pixels(test_rows,origin_x,origin_y,height,width):
     print ("Repacking pixels...")
-    sub_pixels = []
     test_sub_pixels = []
     diff = (width*3)%4
-#     print(diff)
     padding = 0
         
 
@@ -93,7 +75,6 @@ def repack_sub_pixels(rows,test_rows,origin_x,origin_y,height,width):
             for idx , sub_pixel in enumerate(test_row):
                 if idx >= (origin_x*3) and idx< ((origin_x+width)*3):
                     test_sub_pixels.append(sub_pixel)
-#             print(len(test_sub_pixels))
             if (diff!= 0):
                 pad = 0
                 pad = pad.to_bytes(1, 'little')
@@ -102,11 +83,10 @@ def repack_sub_pixels(rows,test_rows,origin_x,origin_y,height,width):
                     test_sub_pixels.append(pad)
                     test_sub_pixels.append(pad)
                 padding = diff
-#             print(len(test_sub_pixels))
 
     print (f'Packed {len(test_sub_pixels)} sub-pixels including padding: i.e {width+diff}x{height}x3 pixels.')
     
-    return sub_pixels,test_sub_pixels,padding
+    return test_sub_pixels,padding
 
 def get_header(file_name,w,h,p,tsp,on):
     li = []
@@ -151,7 +131,6 @@ def get_header(file_name,w,h,p,tsp,on):
     li.append(Important_Colours)
     for x in tsp:
         li.append(x)
-#     print( len(li))
     with open(f'./{on}', 'wb') as file:
         for x in li:
             file.write(x)
@@ -167,8 +146,8 @@ def crop(file_name,output_name,a,b,h,w):
     height of cropped image from origin , 
     width of cropped image from origin.
     '''
-    rows,test_rows = read_rows(file_name,a,b,h,w)
-    sub_pixels,test_sub_pixels,padding = repack_sub_pixels(rows,test_rows,a,b,h,w)
+    test_rows = read_rows(file_name,a,b,h,w)
+    test_sub_pixels,padding = repack_sub_pixels(test_rows,a,b,h,w)
     dim = int((len(test_sub_pixels))//h) 
     w = dim//3
     print(f'length of columns : {dim} ')
